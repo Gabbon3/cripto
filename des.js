@@ -1,6 +1,6 @@
 // 8 bit / 1 byte blocks
 // K must be in base64
-class DES {
+class DEDG {
     // ---
     static R_PERMUTE = Object.freeze({
         p_: [16, 1, 12, 5, 25, 22, 0, 23, 13, 3, 4, 10, 2, 8, 11, 19, 9, 31, 30, 27, 24, 20, 15, 26, 17, 7, 14, 18, 21, 29, 6, 28],
@@ -262,7 +262,7 @@ class DES {
     }
 }
 
-const des = new DES();
+const des = new DEDG();
 
 const en = new Codifica();
 
