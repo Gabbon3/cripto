@@ -1,11 +1,4 @@
-// 8 bit / 1 byte blocks
-// K must be in base64
 class DEDG {
-    // ---
-    static R_PERMUTE = Object.freeze({
-        p_: [16, 1, 12, 5, 25, 22, 0, 23, 13, 3, 4, 10, 2, 8, 11, 19, 9, 31, 30, 27, 24, 20, 15, 26, 17, 7, 14, 18, 21, 29, 6, 28],
-        _p: [23, 11, 15, 16, 4, 12, 6, 7, 9, 0, 26, 14, 19, 22, 30, 21, 17, 29, 20, 3, 18, 25, 8, 10, 13, 28, 1, 5, 2, 31, 24, 27]
-    });
     /**
      * 
      * @param {Int} n_round numero di round da eseguire dopo la prima schermatura
@@ -14,9 +7,14 @@ class DEDG {
     constructor(n_round = 8, block_size = 64) {
         this.encode = new Codifica();
         this.n_round = n_round;
+        // ---
         this.recent_key = '';
         this.recent_iv = '';
+        // ---
         this.block_size = block_size; // in bit
+        this.block_size_mid = block_size / 2;
+        this.iv_size = (block_size / 2) / 8;
+        // ---
         this.s_box_index = 0;
         this.permute_index = 0;
         this.inverse_permute_index = 0;
@@ -33,27 +31,29 @@ class DEDG {
             throw new Error('Dati non conformi, inserire correttamente M, K');
         }
         // --!
+
         // inizializzazione
         M = this.encode.utf8_(M).binario_().string();
         K = this.encode._base64(K).binario_().string();
-        let IV = this.get_random_bytes(4, false);
-        let [K1, K2] = K.match(new RegExp(`.{1,${this.block_size / 2}}`, 'g'));
+        let IV = this.get_random_bytes(this.iv_size, false);
+        let [K1, K2] = K.match(new RegExp(`.{1,${this.block_size_mid}}`, 'g'));
 
         // --- calcolo quali s_box e permutazioni utilizzare
         this.calculate_indexs(K);
 
         // --- suddivido in blocchi
         const blocks = M.match(new RegExp(`.{1,${this.block_size}}`, 'g'));
-        blocks[blocks.length - 1] += '0'.repeat(64 - blocks[[blocks.length - 1]].length);
+        blocks[blocks.length - 1] += '0'.repeat(this.block_size - blocks[[blocks.length - 1]].length);
 
         // --- ottengo le chiavi e i vettori
         const keys = this.calculate_keys(K1, K2);
 
         // --- eseguo la prima schermatura
         for (let i = 0; i < blocks.length; i++) {
-            blocks[i] = this.permute(blocks[i], Permutazioni_64_bit[this.permute_index].p_);
-            blocks[i] = blocks[i].match(new RegExp(`.{1,${this.block_size / 2}}`, 'g'));
+            blocks[i] = this.permute(blocks[i], Permutazioni[this.block_size][this.permute_index].p_);
+            blocks[i] = blocks[i].match(new RegExp(`.{1,${this.block_size_mid}}`, 'g'));
         }
+
         // --- eseguo i round
         for (let r = 0; r < this.n_round; r++) {
             for (let i = 0; i < blocks.length; i++) {
@@ -64,18 +64,18 @@ class DEDG {
         // --- eseguo la schermatura finale
         for (let i = 0; i < blocks.length; i++) {
             blocks[i] = blocks[i].join('');
-            blocks[i] = this.permute(blocks[i], Permutazioni_64_bit[this.inverse_permute_index].p_);
+            blocks[i] = this.permute(blocks[i], Permutazioni[this.block_size][this.inverse_permute_index].p_);
         }
         return {
-            txt: this.encode._binario(blocks.join('')).base64_().string(),
+            M: this.encode._binario(blocks.join('')).base64_().string(),
             IV: this.encode._binario(IV).base64_().string()
         };
     }
     /**
      * decifratura del messaggio
      * @param {string} M messaggio (testo)
-     * @param {string} K chiave (base64) 64 bit
-     * @param {string} IV vettore iniziale (base64) 32 bit opzionale, se mancante viene generato automaticamente
+     * @param {string} K chiave (base64)
+     * @param {string} IV vettore iniziale (base64)
      * @returns {string} messaggio decifrato
      */
     decrypt(M = null, K = null, IV = null) {
@@ -84,11 +84,12 @@ class DEDG {
             throw new Error('Dati non conformi, inserire correttamente M, K e IV');
         }
         // --!
+
         // --- inizializzo
         M = this.encode._base64(M).binario_().string();
         K = this.encode._base64(K).binario_().string();
         IV = this.encode._base64(IV).binario_().string();
-        let [K1, K2] = K.match(new RegExp(`.{1,${this.block_size / 2}}`, 'g'));
+        let [K1, K2] = K.match(new RegExp(`.{1,${this.block_size_mid}}`, 'g'));
 
         // --- calcolo quali s_box e permutazioni utilizzare
         this.calculate_indexs(K);
@@ -101,21 +102,26 @@ class DEDG {
 
         // --- eseguo la permutazione finale
         for (let i = 0; i < blocks.length; i++) {
-            blocks[i] = this.permute(blocks[i], Permutazioni_64_bit[this.inverse_permute_index]._p);
-            blocks[i] = blocks[i].match(new RegExp(`.{1,${this.block_size / 2}}`, 'g'));
+            blocks[i] = this.permute(blocks[i], Permutazioni[this.block_size][this.inverse_permute_index]._p);
+            blocks[i] = blocks[i].match(new RegExp(`.{1,${this.block_size_mid}}`, 'g'));
         }
+
         // --- eseguo i round
         for (let r = this.n_round - 1; r >= 0; r--) {
             for (let i = blocks.length - 1; i >= 0; i--) {
                 [blocks[i], IV] = this.reverse_round(blocks[i], keys[r], IV, i);
             }
         }
+
         // --- Eseguo la permutazione inversa
         for (let i = 0; i < blocks.length; i++) {
             blocks[i] = blocks[i].join('');
-            blocks[i] = this.permute(blocks[i], Permutazioni_64_bit[this.permute_index]._p);
+            blocks[i] = this.permute(blocks[i], Permutazioni[this.block_size][this.permute_index]._p);
         }
-        return this.encode._binario(blocks.join('')).string();
+        // rimuovo caratteri nulli
+        let decrypted_M = this.encode._binario(blocks.join(''))._utf8().string();
+        decrypted_M = decrypted_M.replaceAll('\x00', '');
+        return decrypted_M;
     }
     /**
      * 
@@ -156,44 +162,52 @@ class DEDG {
         const [K1, K2] = K;
         let [left, right] = block;
         // ---
-        right = this.permute(right, Permutazioni_32_bit[this.permute_index].p_);
-        left = this.permute(left, Permutazioni_32_bit[this.permute_index].p_);
+        left = this.permute(left, Permutazioni[this.block_size_mid][this.inverse_permute_index].p_);
         // ---
+        left = this.pop(left);
         right = this.s_box(right, false);
-        left = this.s_box(left, false);
         // ---
-        right = this.xor(right, K1);
+        right = this.xor(left, right);
         left = this.xor(left, K2);
+        right = this.xor(right, K1);
         // ---
-        right = this.xor(right, IV);
         left = this.xor(left, IV);
+        // ---
+        left = this.s_box(left, false);
+        right = this.pop(right);
+        // ---
+        right = this.permute(right, Permutazioni[this.block_size_mid][this.permute_index].p_);
         // ---
         IV = this.s_box(IV, false);
         IV = this.xor(IV, this.xor(K1, K2));
         // ---
-        return [[left, right], IV];
+        return [[right, left], IV];
     }
     /**
      * 
      */
     reverse_round(block, K, IV) {
         const [K1, K2] = K;
-        let [left, right] = block;
+        let [right, left] = block;
         // ---
         IV = this.xor(IV, this.xor(K1, K2));
         IV = this.s_box(IV, true);
         // ---
-        right = this.xor(right, IV);
+        right = this.permute(right, Permutazioni[this.block_size_mid][this.permute_index]._p);
+        // ---
+        right = this.shift(right);
+        left = this.s_box(left, true);
+        // ---
         left = this.xor(left, IV);
         // ---
         right = this.xor(right, K1);
         left = this.xor(left, K2);
+        right = this.xor(left, right);
         // ---
         right = this.s_box(right, true);
-        left = this.s_box(left, true);
+        left = this.shift(left);
         // ---
-        right = this.permute(right, Permutazioni_32_bit[this.permute_index]._p);
-        left = this.permute(left, Permutazioni_32_bit[this.permute_index]._p);
+        left = this.permute(left, Permutazioni[this.block_size_mid][this.inverse_permute_index]._p);
         // ---
         return [[left, right], IV];
     }
@@ -221,9 +235,10 @@ class DEDG {
      */
     round_K(K) {
         // ---
-        K = this.permute(K, Permutazioni_64_bit[this.permute_index].p_);
+        K = this.permute(K, Permutazioni[this.block_size][this.permute_index].p_);
         K = this.s_box(K, false);
         K = this.xor(K, this.recent_key);
+        K = this.shift(K);
         // ---
         this.recent_key = K;
         // ---
@@ -260,22 +275,46 @@ class DEDG {
         }
         return xor_string;
     }
+    /**
+     * 
+     */
+    not(block) {
+        return block.split('').map(bit => bit === '0' ? '1' : '0').join('');
+    }
+    /**
+     * 
+     */
+    shift(block) {
+        block = block.match(/.{1,8}/g);
+        return block.pop() + block.join('');
+    }
+    /**
+     * 
+     */
+    pop(block) {
+        block = block.match(/.{1,8}/g);
+        const b = block.shift();
+        return block.join('') + b;
+    }
 }
 
-const des = new DEDG();
+const des_64 = new DEDG(8, 64);
+const des_128 = new DEDG(8, 128);
 
 const en = new Codifica();
 
-const M = `Ciao come stai?`;
-const K = '3LhBIfRIwGk='; // des.get_random_bytes(8, true)
+const M = `Ciao come stai? 👾👾`;
+const K = '8BUtZwsCwVF9/xV2aUlZ8Q=='; // des.get_random_bytes(16, true)
 
-const startTime = performance.now();
-const encrypt = des.encrypt(M, K);
-const endTime = performance.now();
-const tempoTrascorso = endTime - startTime;
+const start_time = performance.now();
+const encrypt = des_128.encrypt(M, K);
+const end_time = performance.now();
+const tempo_trascorso = end_time - start_time;
 
-const decrypt = des.decrypt(encrypt.txt, K, encrypt.IV);
+// const decrypt = des_128.decrypt(encrypt.M, 'sBUtZwsCwVF9/xV2aUlZ8Q==', encrypt.IV);
+// const decrypt = des_128.decrypt(encrypt.M, '8BUtZwsCwVF9/xV2aUlZ8Q==', encrypt.IV);
+const decrypt = des_128.decrypt(encrypt.M, K, encrypt.IV);
 
 console.log(encrypt);
-console.log(tempoTrascorso.toFixed(2) + ' ms');
+console.log(tempo_trascorso.toFixed(2) + ' ms');
 console.log(decrypt);
