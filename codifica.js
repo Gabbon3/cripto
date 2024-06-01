@@ -75,20 +75,30 @@ class Codifica {
 };
 
 const buffer = {
-    from_64_to_bytes(base64) {
-        var binaryString = atob(base64);
-        var bytes = new Uint8Array(binaryString.length);
-        for (var i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
+    base64: {
+        bytes_(base64) {
+            let binaryString = atob(base64);
+            let bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes;
+        },
+        _bytes(buffer) {
+            let binary = '';
+            const bytes = new Uint8Array(buffer);
+            for (let i = 0; i < bytes.byteLength; i++) {
+                binary += String.fromCharCode(bytes[i]);
+            }
+            return window.btoa(binary);
         }
-        return bytes;
     },
-    from_bytes_to_64(buffer) {
-        let binary = '';
-        const bytes = new Uint8Array(buffer);
-        for (let i = 0; i < bytes.byteLength; i++) {
-            binary += String.fromCharCode(bytes[i]);
+    txt: {
+        bytes_(txt) {
+            return new TextEncoder().encode(txt);
+        },
+        _bytes(buffer) {
+            return new TextDecoder().decode(buffer);
         }
-        return window.btoa(binary);
     }
 }

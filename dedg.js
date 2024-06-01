@@ -4,16 +4,15 @@ class DEDG {
      * @param {Int} n_round numero di round da eseguire dopo la prima schermatura
      * @param {Int} block_size grandezza dei blocchi in bit
      */
-    constructor(n_round = 8, block_size = 64) {
+    constructor(n_round = 8) {
         this.encode = new Codifica();
         this.n_round = n_round;
         // ---
         this.recent_key = '';
         this.recent_iv = '';
         // ---
-        this.block_size = block_size; // in bit
-        this.block_size_mid = block_size / 2;
-        this.iv_size = (block_size / 2) / 8;
+        this.block_size = 16; // in byte
+        this.iv_size = 8; // in byte
         // ---
         this.s_box_index = 0;
         this.permute_index = 0;
@@ -33,8 +32,8 @@ class DEDG {
         // --!
 
         // inizializzazione
-        M = buffer.from_64_to_bytes(this.encode.utf8_(M).base64_().string());
-        K = buffer.from_64_to_bytes(K);
+        M = buffer.base64.bytes_(this.encode.utf8_(M).base64_().string());
+        K = buffer.base64.bytes_(K);
         let IV = this.get_random_bytes(this.iv_size, false);
         let [K1, K2] = [K.slice(0, 8), K.slice(8, 16)];
 
@@ -68,8 +67,8 @@ class DEDG {
 
         // ---
         return {
-            M: buffer.from_bytes_to_64(this.merge_UInt8Array(blocks)),
-            IV: buffer.from_bytes_to_64(IV)
+            M: buffer.base64._bytes(this.merge_UInt8Array(blocks)),
+            IV: buffer.base64._bytes(IV)
         };
     }
     /**
@@ -87,9 +86,9 @@ class DEDG {
         // --!
 
         // --- inizializzo
-        M = buffer.from_64_to_bytes(M);
-        K = buffer.from_64_to_bytes(K);
-        IV = buffer.from_64_to_bytes(IV);
+        M = buffer.base64.bytes_(M);
+        K = buffer.base64.bytes_(K);
+        IV = buffer.base64.bytes_(IV);
         let [K1, K2] = [K.slice(0, 8), K.slice(8, 16)];
 
         // --- calcolo quali s_box e permutazioni utilizzare
@@ -120,14 +119,7 @@ class DEDG {
             blocks[i] = this.permute(blocks[i], Permutazioni[16][this.permute_index]._p);
         }
         // rimuovo caratteri nulli
-        let decrypted_M = buffer.from_bytes_to_64(this.merge_UInt8Array(blocks));
-        try {
-            decrypted_M = this.encode._base64(decrypted_M)._utf8().string();
-            decrypted_M = decrypted_M.replaceAll('\x00', '');
-        } catch (error) {
-            decrypted_M = ':(';
-        }
-        return decrypted_M;
+        return new TextDecoder().decode(this.merge_UInt8Array(blocks)).replaceAll('\x00', '');
     }
     /**
      * 
@@ -164,7 +156,7 @@ class DEDG {
      * suddivide in blocchi da 128 bit aggiungendo un pad finale
      */
     split_and_pad_UInt8Array(array) {
-        const block_size = this.block_size / 8;
+        const block_size = this.block_size;
         const block_count = Math.ceil(array.length / block_size);
         const padded_array = new Uint8Array(block_count * block_size);
         // --- copio i dati dell'originale in quello nuovo con padding
@@ -257,14 +249,7 @@ class DEDG {
     get_random_bytes(bytes = 2, to_base64 = true) {
         let random_bytes = new Uint8Array(bytes);
         window.crypto.getRandomValues(random_bytes);
-        return to_base64 ? buffer.from_bytes_to_64(random_bytes) : random_bytes;
-    }
-    /**
-     * 
-     */
-    shift_string(S) {
-        S = S.split('');
-        return S.pop() + S.join('');
+        return to_base64 ? buffer.base64._bytes(random_bytes) : random_bytes;
     }
     /**
      * 
@@ -272,8 +257,10 @@ class DEDG {
     round_K(K) {
         // ---
         K = this.permute(K, Permutazioni[K.length][this.permute_index].p_);
+        K = this.unshift(K);
         K = this.s_box(K, false);
         K = this.xor(K, this.recent_key);
+        K = this.shift(K);
         // ---
         this.recent_key = K;
         // ---
@@ -346,10 +333,10 @@ class DEDG {
     }
 }
 
-const des = new DEDG(12, 128);
+const des = new DEDG(8);
 const en = new Codifica();
 
-const M = `Attaccheremo sul lato destro del fronte alle 6 di mattina`;
+const M = `Attaccheremo sul lato destro del fronte alle 6 di mattina 🧨🧨`;
 const K = '8BUtZwsCwVF9/xV2aUlZ8Q=='; // des.get_random_bytes(16, true)
 
 const start_time = performance.now();
@@ -357,8 +344,7 @@ const encrypt = des.encrypt(M, K);
 const end_time = performance.now();
 const tempo_trascorso = end_time - start_time;
 
-// const decrypt = des_128.decrypt(encrypt.M, 'sBUtZwsCwVF9/xV2aUlZ8Q==', encrypt.IV);
-// const decrypt = des_128.decrypt(encrypt.M, '8BUtZwsCwVF9/xV2aUlZ8Q==', encrypt.IV);
+// const decrypt = des.decrypt(encrypt.M, '8RUtZwsCwVF9/xV2aUlZ8Q==', encrypt.IV);
 const decrypt = des.decrypt(encrypt.M, K, encrypt.IV);
 
 console.log(encrypt);
