@@ -10,6 +10,7 @@ class DEDG {
         // ---
         this.recent_key = '';
         this.recent_iv = '';
+        this.footprint_K = [new Uint8Array(8), new Uint8Array(8)];
         // ---
         this.block_size = 16; // in byte
         this.iv_size = 8; // in byte
@@ -49,6 +50,7 @@ class DEDG {
         // --- eseguo la prima schermatura
         for (let i = 0; i < blocks.length; i++) {
             blocks[i] = this.permute(blocks[i], Permutazioni[16][this.permute_index].p_);
+            blocks[i] = this.xor(blocks[i], this.footprint_K);
             blocks[i] = [blocks[i].slice(0, 8), blocks[i].slice(8, 16)];
         }
 
@@ -62,6 +64,7 @@ class DEDG {
         // --- eseguo la schermatura finale
         for (let i = 0; i < blocks.length; i++) {
             blocks[i] = this.merge_UInt8Array(blocks[i]);
+            blocks[i] = this.xor(blocks[i], this.footprint_K);
             blocks[i] = this.permute(blocks[i], Permutazioni[16][this.inverse_permute_index].p_);
         }
 
@@ -100,9 +103,10 @@ class DEDG {
         // --- Ottengo le chiavi
         const keys = this.calculate_keys(K1, K2);
 
-        // --- eseguo la permutazione finale
+        // --- eseguo la schermatura finale
         for (let i = 0; i < blocks.length; i++) {
             blocks[i] = this.permute(blocks[i], Permutazioni[16][this.inverse_permute_index]._p);
+            blocks[i] = this.xor(blocks[i], this.footprint_K);
             blocks[i] = [blocks[i].slice(0, 8), blocks[i].slice(8, 16)];
         }
 
@@ -116,6 +120,7 @@ class DEDG {
         // --- Eseguo la permutazione inversa
         for (let i = 0; i < blocks.length; i++) {
             blocks[i] = this.merge_UInt8Array(blocks[i]);
+            blocks[i] = this.xor(blocks[i], this.footprint_K);
             blocks[i] = this.permute(blocks[i], Permutazioni[16][this.permute_index]._p);
         }
         // rimuovo caratteri nulli
@@ -130,14 +135,21 @@ class DEDG {
      * @returns 
      */
     calculate_keys(K1, K2) {
-        const keys = [[K1, K2]];
+        const keys = new Array(this.n_round);
+        keys[0] = [K1, K2];
+        this.footprint_K = [K1, K2];
         this.recent_key = new Uint8Array([85, 85, 85, 85, 85, 85, 85, 85]);
         // --- keys
-        for (let i = 0; i < this.n_round; i++) {
-            K1 = this.round_K(K1);
-            K2 = this.round_K(K2);
-            keys.push([K1, K2]);
+        for (let i = 1; i < this.n_round; i++) {
+            K1 = this.round_K(K1, i);
+            K2 = this.round_K(K2, i);
+            // ---
+            this.footprint_K[0] = this.xor(this.footprint_K[0], K1);
+            this.footprint_K[1] = this.xor(this.footprint_K[1], K2);
+            // ---
+            keys[i] = [K1, K2];
         }
+        this.footprint_K = this.merge_UInt8Array(this.footprint_K);
         return keys;
     }
     /**
@@ -145,26 +157,25 @@ class DEDG {
      */
     calculate_indexs(K) {
         // ---
-        let minimized_K = new Uint8Array([K.slice(0, 1), K.slice(15, 16)]);
+        let m_K = new Uint8Array([K[0], K[15], K[7], K[8]]);
         // ---
-        const mod = (minimized_K[0] ^ minimized_K[1]) % 4;
+        const mod = (m_K[0] ^ m_K[1] ^ m_K[2] ^ m_K[3]) % 8;
         this.s_box_index = mod;
         this.permute_index = mod;
-        this.inverse_permute_index = 3 - mod;
+        this.inverse_permute_index = 7 - mod;
     }
     /**
      * suddivide in blocchi da 128 bit aggiungendo un pad finale
      */
     split_and_pad_UInt8Array(array) {
-        const block_size = this.block_size;
-        const block_count = Math.ceil(array.length / block_size);
-        const padded_array = new Uint8Array(block_count * block_size);
+        const block_count = Math.ceil(array.length / this.block_size);
+        const padded_array = new Uint8Array(block_count * this.block_size);
         // --- copio i dati dell'originale in quello nuovo con padding
         padded_array.set(array);
         // --- creazione dei blocchi
         const blocks = [];
         for (let i = 0; i < block_count; i++) {
-            blocks.push(padded_array.slice(i * block_size, (i + 1) * block_size));
+            blocks.push(padded_array.slice(i * this.block_size, (i + 1) * this.block_size));
         }
         // ---
         return blocks;
@@ -173,11 +184,11 @@ class DEDG {
      * unisco n array UInt8Array
      */
     merge_UInt8Array(arrays) {
-        // Calcola la lunghezza totale del nuovo array
+        // --- len totale
         let total_length = arrays.reduce((acc, curr) => acc + curr.length, 0);
-        // Crea un nuovo Uint8Array della lunghezza totale
+        // --- nuovo array di lunghezza tot_len
         let merged = new Uint8Array(total_length);
-        // Copia i dati di ciascun Uint8Array nel nuovo array
+        // --- per ogni array, copio tutti i dati
         let offset = 0;
         for (let arr of arrays) {
             merged.set(arr, offset);
@@ -254,9 +265,10 @@ class DEDG {
     /**
      * 
      */
-    round_K(K) {
+    round_K(K, i) {
         // ---
-        K = this.permute(K, Permutazioni[K.length][this.permute_index].p_);
+        const p = i % 2 == 0 ? this.permute_index : this.inverse_permute_index;
+        K = this.permute(K, Permutazioni[K.length][p].p_);
         K = this.unshift(K);
         K = this.s_box(K, false);
         K = this.xor(K, this.recent_key);
@@ -331,20 +343,31 @@ class DEDG {
         unshifted[0] = last;
         return unshifted;
     }
+    /**
+     * 
+     */
+    footprint(blocks_array) {
+        let footprint = new Uint8Array(blocks_array[0]);
+        for (let i = 0; i < blocks_array.length - 1; i++) {
+            footprint = this.xor(footprint, blocks_array[i + 1]);
+        }
+        return footprint;
+    }
 }
 
 const des = new DEDG(8);
 const en = new Codifica();
 
-const M = `Attaccheremo sul lato destro del fronte alle 6 di mattina 🧨🧨`;
-const K = '8BUtZwsCwVF9/xV2aUlZ8Q=='; // des.get_random_bytes(16, true)
+// const M = `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`; // 256 bit
+const M = 'Ciao, stasera sushi? 🍣🍣'
+const K = 'SEZgf1Q6KmFdrt38F9tkqg=='; // des.get_random_bytes(16, true)
 
 const start_time = performance.now();
 const encrypt = des.encrypt(M, K);
 const end_time = performance.now();
 const tempo_trascorso = end_time - start_time;
 
-// const decrypt = des.decrypt(encrypt.M, '8RUtZwsCwVF9/xV2aUlZ8Q==', encrypt.IV);
+// const decrypt = des.decrypt(encrypt.M, 'SEZgf1Q6KmFdrt38F9tkqw==', encrypt.IV);
 const decrypt = des.decrypt(encrypt.M, K, encrypt.IV);
 
 console.log(encrypt);
