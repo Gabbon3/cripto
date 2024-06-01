@@ -72,28 +72,23 @@ class Codifica {
      * Specifici
      * -------------------------
      */
-    
-    array_buffer_to_base64(buffer) {
+};
+
+const buffer = {
+    from_64_to_bytes(base64) {
+        var binaryString = atob(base64);
+        var bytes = new Uint8Array(binaryString.length);
+        for (var i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes;
+    },
+    from_bytes_to_64(buffer) {
         let binary = '';
         const bytes = new Uint8Array(buffer);
         for (let i = 0; i < bytes.byteLength; i++) {
             binary += String.fromCharCode(bytes[i]);
         }
         return window.btoa(binary);
-    }
-    
-    base64_to_array_buffer(base64) {
-        const binary = window.atob(base64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) {
-            bytes[i] = binary.charCodeAt(i);
-        }
-        return bytes.buffer;
-    }
-};
-
-const buffer = {
-    bytes_() {
-        
     }
 }

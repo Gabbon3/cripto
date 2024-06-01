@@ -33,25 +33,24 @@ class DEDG {
         // --!
 
         // inizializzazione
-        M = this.encode.utf8_(M).binario_().string();
-        K = this.encode._base64(K).binario_().string();
+        M = buffer.from_64_to_bytes(this.encode.utf8_(M).base64_().string());
+        K = buffer.from_64_to_bytes(K);
         let IV = this.get_random_bytes(this.iv_size, false);
-        let [K1, K2] = K.match(new RegExp(`.{1,${this.block_size_mid}}`, 'g'));
+        let [K1, K2] = [K.slice(0, 8), K.slice(8, 16)];
 
         // --- calcolo quali s_box e permutazioni utilizzare
         this.calculate_indexs(K);
 
         // --- suddivido in blocchi
-        const blocks = M.match(new RegExp(`.{1,${this.block_size}}`, 'g'));
-        blocks[blocks.length - 1] += '0'.repeat(this.block_size - blocks[[blocks.length - 1]].length);
+        const blocks = this.split_and_pad_UInt8Array(M);
 
         // --- ottengo le chiavi e i vettori
         const keys = this.calculate_keys(K1, K2);
 
         // --- eseguo la prima schermatura
         for (let i = 0; i < blocks.length; i++) {
-            blocks[i] = this.permute(blocks[i], Permutazioni[this.block_size][this.permute_index].p_);
-            blocks[i] = blocks[i].match(new RegExp(`.{1,${this.block_size_mid}}`, 'g'));
+            blocks[i] = this.permute(blocks[i], Permutazioni[16][this.permute_index].p_);
+            blocks[i] = [blocks[i].slice(0, 8), blocks[i].slice(8, 16)];
         }
 
         // --- eseguo i round
@@ -63,12 +62,14 @@ class DEDG {
 
         // --- eseguo la schermatura finale
         for (let i = 0; i < blocks.length; i++) {
-            blocks[i] = blocks[i].join('');
-            blocks[i] = this.permute(blocks[i], Permutazioni[this.block_size][this.inverse_permute_index].p_);
+            blocks[i] = this.merge_UInt8Array(blocks[i]);
+            blocks[i] = this.permute(blocks[i], Permutazioni[16][this.inverse_permute_index].p_);
         }
+
+        // ---
         return {
-            M: this.encode._binario(blocks.join('')).base64_().string(),
-            IV: this.encode._binario(IV).base64_().string()
+            M: buffer.from_bytes_to_64(this.merge_UInt8Array(blocks)),
+            IV: buffer.from_bytes_to_64(IV)
         };
     }
     /**
@@ -86,24 +87,24 @@ class DEDG {
         // --!
 
         // --- inizializzo
-        M = this.encode._base64(M).binario_().string();
-        K = this.encode._base64(K).binario_().string();
-        IV = this.encode._base64(IV).binario_().string();
-        let [K1, K2] = K.match(new RegExp(`.{1,${this.block_size_mid}}`, 'g'));
+        M = buffer.from_64_to_bytes(M);
+        K = buffer.from_64_to_bytes(K);
+        IV = buffer.from_64_to_bytes(IV);
+        let [K1, K2] = [K.slice(0, 8), K.slice(8, 16)];
 
         // --- calcolo quali s_box e permutazioni utilizzare
         this.calculate_indexs(K);
 
-        // ---
-        const blocks = M.match(new RegExp(`.{1,${this.block_size}}`, 'g'));
+        // --- suddivido in blocchi
+        const blocks = this.split_and_pad_UInt8Array(M);
 
         // --- Ottengo le chiavi
         const keys = this.calculate_keys(K1, K2);
 
         // --- eseguo la permutazione finale
         for (let i = 0; i < blocks.length; i++) {
-            blocks[i] = this.permute(blocks[i], Permutazioni[this.block_size][this.inverse_permute_index]._p);
-            blocks[i] = blocks[i].match(new RegExp(`.{1,${this.block_size_mid}}`, 'g'));
+            blocks[i] = this.permute(blocks[i], Permutazioni[16][this.inverse_permute_index]._p);
+            blocks[i] = [blocks[i].slice(0, 8), blocks[i].slice(8, 16)];
         }
 
         // --- eseguo i round
@@ -115,13 +116,13 @@ class DEDG {
 
         // --- Eseguo la permutazione inversa
         for (let i = 0; i < blocks.length; i++) {
-            blocks[i] = blocks[i].join('');
-            blocks[i] = this.permute(blocks[i], Permutazioni[this.block_size][this.permute_index]._p);
+            blocks[i] = this.merge_UInt8Array(blocks[i]);
+            blocks[i] = this.permute(blocks[i], Permutazioni[16][this.permute_index]._p);
         }
         // rimuovo caratteri nulli
-        let decrypted_M = '';
+        let decrypted_M = buffer.from_bytes_to_64(this.merge_UInt8Array(blocks));
         try {
-            decrypted_M = this.encode._binario(blocks.join(''))._utf8().string();
+            decrypted_M = this.encode._base64(decrypted_M)._utf8().string();
             decrypted_M = decrypted_M.replaceAll('\x00', '');
         } catch (error) {
             decrypted_M = ':(';
@@ -138,7 +139,7 @@ class DEDG {
      */
     calculate_keys(K1, K2) {
         const keys = [[K1, K2]];
-        this.recent_key = '0'.repeat(K1.length);
+        this.recent_key = new Uint8Array([85, 85, 85, 85, 85, 85, 85, 85]);
         // --- keys
         for (let i = 0; i < this.n_round; i++) {
             K1 = this.round_K(K1);
@@ -152,26 +153,57 @@ class DEDG {
      */
     calculate_indexs(K) {
         // ---
-        let minimized_K = K.match(/.{1,4}/g);
-        minimized_K = minimized_K[0] + minimized_K[minimized_K.length - 1];
+        let minimized_K = new Uint8Array([K.slice(0, 1), K.slice(15, 16)]);
         // ---
-        const mod = parseInt(minimized_K, 2) % 4;
+        const mod = (minimized_K[0] ^ minimized_K[1]) % 4;
         this.s_box_index = mod;
         this.permute_index = mod;
         this.inverse_permute_index = 3 - mod;
     }
     /**
+     * suddivide in blocchi da 128 bit aggiungendo un pad finale
+     */
+    split_and_pad_UInt8Array(array) {
+        const block_size = this.block_size / 8;
+        const block_count = Math.ceil(array.length / block_size);
+        const padded_array = new Uint8Array(block_count * block_size);
+        // --- copio i dati dell'originale in quello nuovo con padding
+        padded_array.set(array);
+        // --- creazione dei blocchi
+        const blocks = [];
+        for (let i = 0; i < block_count; i++) {
+            blocks.push(padded_array.slice(i * block_size, (i + 1) * block_size));
+        }
+        // ---
+        return blocks;
+    }
+    /**
+     * unisco n array UInt8Array
+     */
+    merge_UInt8Array(arrays) {
+        // Calcola la lunghezza totale del nuovo array
+        let total_length = arrays.reduce((acc, curr) => acc + curr.length, 0);
+        // Crea un nuovo Uint8Array della lunghezza totale
+        let merged = new Uint8Array(total_length);
+        // Copia i dati di ciascun Uint8Array nel nuovo array
+        let offset = 0;
+        for (let arr of arrays) {
+            merged.set(arr, offset);
+            offset += arr.length;
+        }
+        return merged;
+    }
+    /**
      * block => left - right
-     * left  : permute > pop > xor(K2) > xor(IV) > s_box
-     * right : s_box > xor(left) > xor(K1) > pop > permute
+     * left  : permute > xor(K2) > xor(IV) > s_box
+     * right : s_box > xor(left) > xor(K1) > permute
      */
     round(block, K, IV) {
         const [K1, K2] = K;
         let [left, right] = block;
         // ---
-        left = this.permute(left, Permutazioni[this.block_size_mid][this.inverse_permute_index].p_);
+        left = this.permute(left, Permutazioni[8][this.inverse_permute_index].p_);
         // ---
-        left = this.pop(left);
         right = this.s_box(right, false);
         // ---
         right = this.xor(left, right);
@@ -181,9 +213,8 @@ class DEDG {
         left = this.xor(left, IV);
         // ---
         left = this.s_box(left, false);
-        right = this.pop(right);
         // ---
-        right = this.permute(right, Permutazioni[this.block_size_mid][this.permute_index].p_);
+        right = this.permute(right, Permutazioni[8][this.permute_index].p_);
         // ---
         IV = this.s_box(IV, false);
         IV = this.xor(IV, this.xor(K1, K2));
@@ -200,9 +231,8 @@ class DEDG {
         IV = this.xor(IV, this.xor(K1, K2));
         IV = this.s_box(IV, true);
         // ---
-        right = this.permute(right, Permutazioni[this.block_size_mid][this.permute_index]._p);
+        right = this.permute(right, Permutazioni[8][this.permute_index]._p);
         // ---
-        right = this.shift(right);
         left = this.s_box(left, true);
         // ---
         left = this.xor(left, IV);
@@ -212,9 +242,8 @@ class DEDG {
         right = this.xor(left, right);
         // ---
         right = this.s_box(right, true);
-        left = this.shift(left);
         // ---
-        left = this.permute(left, Permutazioni[this.block_size_mid][this.inverse_permute_index]._p);
+        left = this.permute(left, Permutazioni[8][this.inverse_permute_index]._p);
         // ---
         return [[left, right], IV];
     }
@@ -224,11 +253,7 @@ class DEDG {
     get_random_bytes(bytes = 2, to_base64 = true) {
         let random_bytes = new Uint8Array(bytes);
         window.crypto.getRandomValues(random_bytes);
-        let binary_string = Array.from(random_bytes).map(byte => {
-            // Converti il byte in una stringa binaria con padding a 8 bit
-            return byte.toString(2).padStart(8, '0');
-        }).join('');
-        return to_base64 ? this.encode._binario(binary_string).base64_().string() : binary_string;
+        return to_base64 ? buffer.from_bytes_to_64(random_bytes) : random_bytes;
     }
     /**
      * 
@@ -242,10 +267,9 @@ class DEDG {
      */
     round_K(K) {
         // ---
-        K = this.permute(K, Permutazioni[this.block_size][this.permute_index].p_);
+        K = this.permute(K, Permutazioni[K.length][this.permute_index].p_);
         K = this.s_box(K, false);
         K = this.xor(K, this.recent_key);
-        K = this.shift(K);
         // ---
         this.recent_key = K;
         // ---
@@ -254,33 +278,41 @@ class DEDG {
     /**
      * 
      */
-    permute(block, permutation) {
-        let permute = "";
-        for (let i = 0; i < permutation.length; i++) {
-            permute += block[permutation[i]];
+    permute(array, perm_table) {
+        let result = new Uint8Array(perm_table.length);
+        // ---
+        for (let i = 0; i < perm_table.length; i++) {
+            result[i] = array[perm_table[i]];
         }
-        return permute;
+        // ---
+        return result;
     }
     /**
      * 
      */
     s_box(block, reverse) {
-        block = block.match(/.{1,8}/g);
         for (let i = 0; i < block.length; i++) {
-            const p = parseInt(block[i], 2);
-            block[i] = reverse ? S_BOX_8[this.s_box_index]._s[p] : S_BOX_8[this.s_box_index].s_[p];
+            block[i] = reverse ?
+                S_BOX_8[this.s_box_index]._s[block[i]] :
+                S_BOX_8[this.s_box_index].s_[block[i]];
         }
-        return block.join('');
+        return block;
     }
     /**
      * 
      */
-    xor(block, K) {
-        let xor_string = "";
-        for (let i = 0; i < block.length; i++) {
-            xor_string += block[i] ^ K[i];
+    xor(arr_1, arr_2) {
+        if (arr_1.length !== arr_2.length) {
+            throw new Error('Gli array devono avere la stessa dimensione');
         }
-        return xor_string;
+        // ---
+        let result = new Uint8Array(arr_1.length);
+        // ---
+        for (let i = 0; i < arr_1.length; i++) {
+            result[i] = arr_1[i] ^ arr_2[i];
+        }
+        // ---
+        return result;
     }
     /**
      * 
@@ -318,9 +350,9 @@ const encrypt = des_128.encrypt(M, K);
 const end_time = performance.now();
 const tempo_trascorso = end_time - start_time;
 
-const decrypt = des_128.decrypt(encrypt.M, 'sBUtZwsCwVF9/xV2aUlZ8Q==', encrypt.IV);
+// const decrypt = des_128.decrypt(encrypt.M, 'sBUtZwsCwVF9/xV2aUlZ8Q==', encrypt.IV);
 // const decrypt = des_128.decrypt(encrypt.M, '8BUtZwsCwVF9/xV2aUlZ8Q==', encrypt.IV);
-// const decrypt = des_128.decrypt(encrypt.M, K, encrypt.IV);
+const decrypt = des_128.decrypt(encrypt.M, K, encrypt.IV);
 
 console.log(encrypt);
 console.log(tempo_trascorso.toFixed(2) + ' ms');
