@@ -152,7 +152,7 @@ perche 7 * 3 = 21
 
 21 mod 20 = 1
 
-in poche parole (d * e) MOD(20) = 1
+in poche parole (d * e) MOD(ϕ(n)) = 1
 
 d * 3 MOD(20) = 1
 
@@ -172,5 +172,33 @@ M = 5
 C = M^e mod n = 5^3 mod 33 = 26
 
 M = C^d mod n = 26^7 mod 33 = 5
+
+-------------------------------
+
+p = 61
+q = 53
+
+n = 61 * 53 = 3233
+
+ϕ(n) = (61 - 1) * (53 - 1) = 60 * 52 = 3120
+
+e = 101
+
+d = ? dove (d * e) MOD(ϕ(n)) = 1
+
+cioè d * 101 mod 3120 = 1
+
+d = 1421
+
+ora ho le mie chiavi:
+
+pubb = (e = 101, n = 3233)
+priv = (d = 1421, n = 3233)
+
+M = 5
+
+C = M^e mod n = 5^101 mod 3233 = 2505
+
+M = C^d mod n = 2505^1421 mod 3233 = 5
 
 */

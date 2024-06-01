@@ -78,6 +78,17 @@ const PERMUTE_GENERATOR = {
     }
 }
 
+function MCD(a, b) {
+    let r;
+    r = a % b;
+    while (r != 0) {
+        a = b;
+        b = r;
+        r = a % b;
+    }
+    return b;
+}
+
 /**
  * S Box
  */

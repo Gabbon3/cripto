@@ -119,8 +119,13 @@ class DEDG {
             blocks[i] = this.permute(blocks[i], Permutazioni[this.block_size][this.permute_index]._p);
         }
         // rimuovo caratteri nulli
-        let decrypted_M = this.encode._binario(blocks.join(''))._utf8().string();
-        decrypted_M = decrypted_M.replaceAll('\x00', '');
+        let decrypted_M = '';
+        try {
+            decrypted_M = this.encode._binario(blocks.join(''))._utf8().string();
+            decrypted_M = decrypted_M.replaceAll('\x00', '');
+        } catch (error) {
+            decrypted_M = ':(';
+        }
         return decrypted_M;
     }
     /**
@@ -156,7 +161,9 @@ class DEDG {
         this.inverse_permute_index = 3 - mod;
     }
     /**
-     * 
+     * block => left - right
+     * left  : permute > pop > xor(K2) > xor(IV) > s_box
+     * right : s_box > xor(left) > xor(K1) > pop > permute
      */
     round(block, K, IV) {
         const [K1, K2] = K;
@@ -303,7 +310,7 @@ const des_128 = new DEDG(8, 128);
 
 const en = new Codifica();
 
-const M = `Ciao come stai? 👾👾`;
+const M = `Ciao come stai? 👾`;
 const K = '8BUtZwsCwVF9/xV2aUlZ8Q=='; // des.get_random_bytes(16, true)
 
 const start_time = performance.now();
@@ -311,9 +318,9 @@ const encrypt = des_128.encrypt(M, K);
 const end_time = performance.now();
 const tempo_trascorso = end_time - start_time;
 
-// const decrypt = des_128.decrypt(encrypt.M, 'sBUtZwsCwVF9/xV2aUlZ8Q==', encrypt.IV);
+const decrypt = des_128.decrypt(encrypt.M, 'sBUtZwsCwVF9/xV2aUlZ8Q==', encrypt.IV);
 // const decrypt = des_128.decrypt(encrypt.M, '8BUtZwsCwVF9/xV2aUlZ8Q==', encrypt.IV);
-const decrypt = des_128.decrypt(encrypt.M, K, encrypt.IV);
+// const decrypt = des_128.decrypt(encrypt.M, K, encrypt.IV);
 
 console.log(encrypt);
 console.log(tempo_trascorso.toFixed(2) + ' ms');

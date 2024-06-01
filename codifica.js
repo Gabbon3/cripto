@@ -90,5 +90,10 @@ class Codifica {
         }
         return bytes.buffer;
     }
-
 };
+
+const buffer = {
+    bytes_() {
+        
+    }
+}
