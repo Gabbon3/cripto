@@ -195,14 +195,15 @@ class DEDG {
     }
     /**
      * block => left - right
-     * left  : permute > xor(K2) > xor(IV) > s_box
-     * right : s_box > xor(left) > xor(K1) > permute
+     * left  : permute > shift > xor(K2) > xor(IV) > s_box
+     * right : s_box > xor(left) > xor(K1) > shift > permute
      */
     round(block, K, IV) {
         const [K1, K2] = K;
         let [left, right] = block;
         // ---
         left = this.permute(left, Permutazioni[8][this.inverse_permute_index].p_);
+        left = this.shift(left);
         // ---
         right = this.s_box(right, false);
         // ---
@@ -214,6 +215,7 @@ class DEDG {
         // ---
         left = this.s_box(left, false);
         // ---
+        right = this.shift(right);
         right = this.permute(right, Permutazioni[8][this.permute_index].p_);
         // ---
         IV = this.s_box(IV, false);
@@ -232,6 +234,7 @@ class DEDG {
         IV = this.s_box(IV, true);
         // ---
         right = this.permute(right, Permutazioni[8][this.permute_index]._p);
+        right = this.unshift(right);
         // ---
         left = this.s_box(left, true);
         // ---
@@ -243,6 +246,7 @@ class DEDG {
         // ---
         right = this.s_box(right, true);
         // ---
+        left = this.unshift(left);
         left = this.permute(left, Permutazioni[8][this.inverse_permute_index]._p);
         // ---
         return [[left, right], IV];
@@ -317,42 +321,45 @@ class DEDG {
     /**
      * 
      */
-    not(block) {
-        return block.split('').map(bit => bit === '0' ? '1' : '0').join('');
-    }
-    /**
-     * 
-     */
     shift(block) {
-        block = block.match(/.{1,8}/g);
-        return block.pop() + block.join('');
+        // ---
+        const first = block[0];
+        const shifted = new Uint8Array(block.length);
+        // ---
+        shifted.set(block.slice(1), 0);
+        // ---
+        shifted[shifted.length - 1] = first;
+        return shifted;
     }
     /**
      * 
      */
-    pop(block) {
-        block = block.match(/.{1,8}/g);
-        const b = block.shift();
-        return block.join('') + b;
+    unshift(block) {
+        // ---
+        const last = block[block.length - 1];
+        const unshifted = new Uint8Array(block.length);
+        // ---
+        unshifted.set(block.slice(0, block.length - 1), 1);
+        // ---
+        unshifted[0] = last;
+        return unshifted;
     }
 }
 
-const des_64 = new DEDG(8, 64);
-const des_128 = new DEDG(8, 128);
-
+const des = new DEDG(12, 128);
 const en = new Codifica();
 
-const M = `Ciao come stai? 👾`;
+const M = `Attaccheremo sul lato destro del fronte alle 6 di mattina`;
 const K = '8BUtZwsCwVF9/xV2aUlZ8Q=='; // des.get_random_bytes(16, true)
 
 const start_time = performance.now();
-const encrypt = des_128.encrypt(M, K);
+const encrypt = des.encrypt(M, K);
 const end_time = performance.now();
 const tempo_trascorso = end_time - start_time;
 
 // const decrypt = des_128.decrypt(encrypt.M, 'sBUtZwsCwVF9/xV2aUlZ8Q==', encrypt.IV);
 // const decrypt = des_128.decrypt(encrypt.M, '8BUtZwsCwVF9/xV2aUlZ8Q==', encrypt.IV);
-const decrypt = des_128.decrypt(encrypt.M, K, encrypt.IV);
+const decrypt = des.decrypt(encrypt.M, K, encrypt.IV);
 
 console.log(encrypt);
 console.log(tempo_trascorso.toFixed(2) + ' ms');
