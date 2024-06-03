@@ -16,6 +16,128 @@ class DiffieHellman {
     }
 }
 
+class RSA {
+    constructor(p = 0, q = 0) {
+        this.p = p;
+        this.q = q;
+        // ---
+        this.n = 0;
+        this.phi = 0;
+        // ---
+        this.e = 0;
+        this.d = 0;
+        // ---
+        this.public = [];
+        this.private = [];
+    }
+    /**
+     * genera due numeri primi
+     */
+    genera_p_q(limite) {
+        const n_primi = math.genera_lista_numeri_primi(limite);
+        n_primi.shuffle();
+        this.p = n_primi[0];
+        this.q = n_primi[n_primi.length - 1];
+        // ---
+        return {
+            p: this.p,
+            q: this.q
+        }
+    }
+    /**
+     * 
+     */
+    genera_e(phi = this.phi) {
+        const arr = [];
+        const max_try = 1615;
+        let e = 3n;
+        // ---
+        for (let i = 0; i < max_try; i++) { // e deve essere dispari
+            if (math.mcd(e, phi) === 1n) {
+                arr.push(e);
+                i++;
+            }
+            e += 2n;
+            if (e >= phi) break;
+        }
+        return arr.length > 0 ? arr[random.min_max(0, arr.length)] : false;
+    }
+    /**
+     * 
+     */
+    genera_d() {
+        return math.euclide_esteso(this.e, this.phi).d;
+    }
+    /**
+     * 
+     */
+    genera_coppia() {
+        // ---
+        this.p = BigInt(this.p);
+        this.q = BigInt(this.q);
+        this.n = this.p * this.q;
+        // ---
+        this.phi = (this.p - 1n) * (this.q - 1n);
+        // ---
+        this.e = this.genera_e();
+        // ---
+        this.d = this.genera_d();
+        // ---
+        if (!this.e || !this.d) {
+            return false;
+        } else {
+            this.public = [this.e, this.n];
+            this.private = [this.d, this.n];
+            return {
+                public: this.public,
+                private: this.private
+            }
+        }
+    }
+    /**
+     * 0 <= M < n
+     */
+    cifra(M, K = this.public) {
+        // -- BigInt
+        M = BigInt(M);
+        const e = BigInt(K[0]);
+        const n = BigInt(K[1]);
+        // ---
+        const C = M ** e % n;
+        return C;
+    }
+    /**
+     * 
+     */
+    decifra(C, K = this.private) {
+        // -- BigInt
+        C = BigInt(C);
+        const d = BigInt(K[0]);
+        const n = BigInt(K[1]);
+        // ---
+        const M = C ** d % n;
+        return M;
+    }
+}
+
+const rsa = new RSA();
+
+rsa.genera_p_q(615);
+
+console.log(rsa.genera_coppia());
+
+const N = random.min_max(2, Number(rsa.n) - 1);
+
+const cifrato = rsa.cifra(N);
+const decifrato = rsa.decifra(cifrato);
+
+console.log('N = ' + N);
+console.log(cifrato);
+console.log(' =>');
+console.log(decifrato);
+
+console.log(' --- ');
+
 // const p = 23;
 // const g = 5;
 

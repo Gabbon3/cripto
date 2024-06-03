@@ -74,7 +74,7 @@ class Codifica {
      */
 };
 
-const buffer = {
+const encoder = {
     base64: {
         bytes_(base64) {
             let binaryString = atob(base64);
@@ -91,6 +91,22 @@ const buffer = {
                 binary += String.fromCharCode(bytes[i]);
             }
             return window.btoa(binary);
+        }
+    },
+    hex: {
+        _hex(hex_string) {
+            return hex_string.match(/.{1,2}/g).map((byte) => String.fromCharCode(parseInt(byte, 16))).join('');
+        },
+        hex_(text) {
+            return Array.from(text, (char) => char.charCodeAt(0).toString(16)).join('');
+        },
+        bytes_(hex_string) {
+            const text = this._hex(hex_string);
+            return new TextEncoder().encode(text);
+        },
+        _bytes(buffer) {
+            const text = new TextDecoder().decode(buffer);
+            return this.hex_(text);
         }
     },
     txt: {

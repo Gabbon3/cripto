@@ -33,8 +33,8 @@ class DEDG {
         // --!
 
         // inizializzazione
-        M = buffer.base64.bytes_(this.encode.utf8_(M).base64_().string());
-        K = buffer.base64.bytes_(K);
+        M = encoder.base64.bytes_(this.encode.utf8_(M).base64_().string());
+        K = encoder.base64.bytes_(K);
         let IV = this.get_random_bytes(this.iv_size, false);
         let [K1, K2] = [K.slice(0, 8), K.slice(8, 16)];
 
@@ -70,8 +70,8 @@ class DEDG {
 
         // ---
         return {
-            M: buffer.base64._bytes(this.merge_UInt8Array(blocks)),
-            IV: buffer.base64._bytes(IV)
+            M: encoder.base64._bytes(this.merge_UInt8Array(blocks)),
+            IV: encoder.base64._bytes(IV)
         };
     }
     /**
@@ -89,9 +89,9 @@ class DEDG {
         // --!
 
         // --- inizializzo
-        M = buffer.base64.bytes_(M);
-        K = buffer.base64.bytes_(K);
-        IV = buffer.base64.bytes_(IV);
+        M = encoder.base64.bytes_(M);
+        K = encoder.base64.bytes_(K);
+        IV = encoder.base64.bytes_(IV);
         let [K1, K2] = [K.slice(0, 8), K.slice(8, 16)];
 
         // --- calcolo quali s_box e permutazioni utilizzare
@@ -260,7 +260,7 @@ class DEDG {
     get_random_bytes(bytes = 2, to_base64 = true) {
         let random_bytes = new Uint8Array(bytes);
         window.crypto.getRandomValues(random_bytes);
-        return to_base64 ? buffer.base64._bytes(random_bytes) : random_bytes;
+        return to_base64 ? encoder.base64._bytes(random_bytes) : random_bytes;
     }
     /**
      * 
