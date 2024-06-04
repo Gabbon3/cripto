@@ -347,10 +347,14 @@ class DEDG {
      * 
      */
     footprint(blocks_array) {
-        let footprint = new Uint8Array(blocks_array[0]);
+        let footprint = blocks_array[0];
+        console.log('Foot print');
+        let t = `${footprint}\n`;
         for (let i = 0; i < blocks_array.length - 1; i++) {
-            footprint = this.xor(footprint, blocks_array[i + 1]);
+            footprint = footprint ^ blocks_array[i + 1];
+            t += `${footprint}\n`;
         }
+        console.log(t);
         return footprint;
     }
 }
@@ -358,18 +362,18 @@ class DEDG {
 const des = new DEDG(8);
 const en = new Codifica();
 
-// const M = `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`; // 256 bit
-const M = 'Ciao, stasera sushi? 🍣🍣'
-const K = 'SEZgf1Q6KmFdrt38F9tkqg=='; // des.get_random_bytes(16, true)
+// // const M = `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`; // 256 bit
+// const M = 'Ciao, stasera sushi? 🍣🍣'
+// const K = 'SEZgf1Q6KmFdrt38F9tkqg=='; // des.get_random_bytes(16, true)
 
-const start_time = performance.now();
-const encrypt = des.encrypt(M, K);
-const end_time = performance.now();
-const tempo_trascorso = end_time - start_time;
+// const start_time = performance.now();
+// const encrypt = des.encrypt(M, K);
+// const end_time = performance.now();
+// const tempo_trascorso = end_time - start_time;
 
-// const decrypt = des.decrypt(encrypt.M, 'SEZgf1Q6KmFdrt38F9tkqw==', encrypt.IV);
-const decrypt = des.decrypt(encrypt.M, K, encrypt.IV);
+// // const decrypt = des.decrypt(encrypt.M, 'SEZgf1Q6KmFdrt38F9tkqw==', encrypt.IV);
+// const decrypt = des.decrypt(encrypt.M, K, encrypt.IV);
 
-console.log(encrypt);
-console.log(tempo_trascorso.toFixed(2) + ' ms');
-console.log(decrypt);
+// console.log(encrypt);
+// console.log(tempo_trascorso.toFixed(2) + ' ms');
+// console.log(decrypt);

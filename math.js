@@ -165,6 +165,19 @@ class Random {
         return Math.round(Math.random() * (max - min)) + min;
     }
     /**
+     * Restituisce un BigInt casuale
+     * @param {Int} bits 
+     * @returns 
+     */
+    big_int(bits) {
+        let num = BigInt("1");
+        for (let i = 0; i < bits - 2; i++) {
+            num = (num << 1n) | BigInt(Math.floor(Math.random() * 2));
+        }
+        num = (num << 1n) | 1n; // Assicurati che sia dispari
+        return num;
+    }
+    /**
      * genera un numero casuale sicuro
      * @param {int} min 
      * @param {int} max 

@@ -1,18 +1,42 @@
 class DiffieHellman {
-    constructor(p, g, a) {
-        this.p = p;
-        this.g = g;
-        this.a = a;
-        this.A = 0;
-        this.K = 0;
+    constructor(p = 0n, g = 0n, a = 0n) {
+        this.p = BigInt(p);
+        this.g = BigInt(g);
+        this.a = BigInt(a);
+        this.A = 0n;
+        this.K = 0n;
     }
     public(p = this.p, g = this.g, a = this.a) {
-        this.A = (g ** a) % p;
+        this.A = g ** a % p;
         return this.A;
     }
     key(B, p = this.p, a = this.a) {
-        this.K = (B ** a) % p;
+        this.K = B ** a % p;
         return this.K;
+    }
+    genera_p_g(limite = 100) {
+        const primi = math.genera_lista_numeri_primi(limite);
+        this.p = BigInt(primi[random.min_max(4, primi.length - 1)]);
+        this.g = this.genera_e(this.p);
+        return [this.p, this.g];
+    }
+    /**
+     * 
+     */
+    genera_e(phi) {
+        const arr = [];
+        const max_try = 1615;
+        let e = 3n;
+        // ---
+        for (let i = 0; i < max_try; i++) { // e deve essere dispari
+            if (math.mcd(e, phi) === 1n) {
+                arr.push(e);
+                i++;
+            }
+            e += 2n;
+            if (e >= phi) break;
+        }
+        return arr.length > 0 ? arr[random.min_max(0, arr.length)] : false;
     }
 }
 
@@ -122,33 +146,46 @@ class RSA {
 
 const rsa = new RSA();
 
-rsa.genera_p_q(615);
+// rsa.genera_p_q(200);
 
-console.log(rsa.genera_coppia());
+// console.log(rsa.genera_coppia());
 
-const N = random.min_max(2, Number(rsa.n) - 1);
+// const N = random.min_max(2, Number(rsa.n) - 1);
 
-const cifrato = rsa.cifra(N);
-const decifrato = rsa.decifra(cifrato);
+// const cifrato = rsa.cifra(N);
+// const decifrato = rsa.decifra(cifrato);
 
-console.log('N = ' + N);
-console.log(cifrato);
-console.log(' =>');
-console.log(decifrato);
+// console.log('N = ' + N);
+// console.log(cifrato);
+// console.log(' =>');
+// console.log(decifrato);
+
+// console.log(' --- ');
+
+const dh = new DiffieHellman();
+
+const [p, g] = dh.genera_p_g(500);
+
+console.log('p = ' + p);
+console.log('g = ' + g);
+
+const [a, b] = [random.min_max(1, Number(p - 1n)), random.min_max(1, Number(p - 1n))]
 
 console.log(' --- ');
 
-// const p = 23;
-// const g = 5;
+console.log('a = ' + a);
+console.log('b = ' + b);
 
-// const alice = new DiffieHellman(p, g, 4);
-// const bob = new DiffieHellman(p, g, 16);
+console.log(' -- K:');
 
-// alice.public();
-// bob.public();
+const alice = new DiffieHellman(p, g, a);
+const bob = new DiffieHellman(p, g, b);
 
-// alice.key(bob.A);
-// bob.key(alice.A);
+alice.public();
+bob.public();
 
-// console.log(alice.K);
-// console.log(bob.K);
+alice.key(bob.A);
+bob.key(alice.A);
+
+console.log(alice.K);
+console.log(bob.K);
