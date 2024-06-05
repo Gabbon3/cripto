@@ -70,9 +70,11 @@ class MATH {
         return primes;
     }
     /**
-     * 
+     * Verifico se un numero è primo o meno
+     * @param {Int} n 
+     * @returns true se è primo, false se non lo è
      */
-    is_prime(n) {
+    primo(n) {
         // -- Casi base
         if (n <= 1) return false;
         if (n === 2) return true;
@@ -90,7 +92,10 @@ class MATH {
         return true;
     }
     /**
-     * Calcola il massimo comun divisore
+     * Calcola il massimo comun divisore tra due numeri
+     * @param {BigInt} a 
+     * @param {BigInt} b 
+     * @returns 
      */
     mcd(a, b) {
         // ---
@@ -104,6 +109,9 @@ class MATH {
     }
     /**
      * Euclide esteso
+     * utilizzato spesso per trovare il coefficiente privato d in crittografia asimmetrica passando 'e' e 'phi'
+     * @param {BigInt} e 
+     * @param {BigInt} phi
      */
     euclide_esteso(e, phi) {
         phi = BigInt(phi);

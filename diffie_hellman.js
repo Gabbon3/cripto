@@ -60,8 +60,8 @@ class RSA {
     genera_p_q(limite) {
         const n_primi = math.genera_lista_numeri_primi(limite);
         n_primi.shuffle();
-        this.p = n_primi[0];
-        this.q = n_primi[n_primi.length - 1];
+        this.p = BigInt(n_primi[0]);
+        this.q = BigInt(n_primi[n_primi.length - 1]);
         // ---
         return {
             p: this.p,
@@ -84,7 +84,7 @@ class RSA {
             e += 2n;
             if (e >= phi) break;
         }
-        return arr.length > 0 ? arr[random.min_max(0, arr.length)] : false;
+        return arr.length > 0 ? arr[random.min_max(0, arr.length - 1)] : false;
     }
     /**
      * 
@@ -146,25 +146,30 @@ class RSA {
 
 const rsa = new RSA();
 
-// rsa.genera_p_q(200);
+rsa.genera_p_q(500);
 
-// console.log(rsa.genera_coppia());
+console.log('Esempio RSA');
 
-// const N = random.min_max(2, Number(rsa.n) - 1);
+console.log(rsa.genera_coppia());
 
-// const cifrato = rsa.cifra(N);
-// const decifrato = rsa.decifra(cifrato);
+const N = random.min_max(2, Number(rsa.n) - 1);
 
-// console.log('N = ' + N);
-// console.log(cifrato);
-// console.log(' =>');
-// console.log(decifrato);
 
-// console.log(' --- ');
+const cifrato = rsa.cifra(N);
+const decifrato = rsa.decifra(cifrato);
+
+console.log('N° da cifrare = ' + N);
+console.log(' => ');
+console.log('Cifrato: ' + cifrato);
+console.log(' <= ');
+console.log('Decifrato: ' + decifrato);
+
+console.log('\n---\n\n');
+console.log('Esempio Diffie Hellman');
 
 const dh = new DiffieHellman();
 
-const [p, g] = dh.genera_p_g(500);
+const [p, g] = dh.genera_p_g(10000);
 
 console.log('p = ' + p);
 console.log('g = ' + g);
@@ -173,8 +178,8 @@ const [a, b] = [random.min_max(1, Number(p - 1n)), random.min_max(1, Number(p - 
 
 console.log(' --- ');
 
-console.log('a = ' + a);
-console.log('b = ' + b);
+console.log('numero casuale di alice: a = ' + a);
+console.log('numero casuale di bob: b = ' + b);
 
 console.log(' -- K:');
 
@@ -187,5 +192,5 @@ bob.public();
 alice.key(bob.A);
 bob.key(alice.A);
 
-console.log(alice.K);
-console.log(bob.K);
+console.log('K generata da alice: ' + alice.K);
+console.log('K generata da bob: ' + bob.K);
